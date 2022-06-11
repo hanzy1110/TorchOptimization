@@ -16,7 +16,7 @@ import optax
 
 # f0 = 1e12
 
-p, dim, N, iterations, max_iters = 3.0,3, 12, 1000, 100
+p, dim, N, iterations, max_iters = 3.0, 3, 6, 1000, 100
 
 def pframe(X, p, dim):
     N = X.size // dim
@@ -44,8 +44,8 @@ def main():
 
     f0 = 1e12
     key = jax.random.PRNGKey(0)
-    # u = jax.random.normal(key, (N,dim))
-    u = jnp.ones((N,dim))
+    u = jax.random.normal(key, (N,dim))
+    # u = jnp.ones((N,dim))
     u = (u / np.sqrt(np.sum(u**2, 1))[:, None]).ravel()
     opt = optax.adam(learning_rate=0.1)
     params = {'u':u}
@@ -54,12 +54,20 @@ def main():
     for I in range(iterations):
 
         compute_loss = jit(lambda params: pframe(params['u'], p, dim))
+        gradFun = jax.grad(compute_loss)
         grads = jax.grad(compute_loss)(params)
         updates, opt_state = opt.update(grads, opt_state)
         params = optax.apply_updates(params, updates)
         minf = compute_loss(params)
         err = jnp.abs(f0-minf)/jnp.abs(minf)
-        if jnp.isclose(err, b=0, rtol=1e-4):
+
+        if jnp.isclose(err, b=0, rtol=1e-6):
+            relDist = jnp.linalg.norm(u-grads['u'])/jnp.linalg.norm(grads['u'])
+            print('u', u)
+            final_grad = gradFun(params)
+            print('grad norm', jnp.linalg.norm(final_grad['u']))
+            print('Solution', grads['u'])
+            print('Relative distance-->', relDist)
             print('grads--->', grads)
             print('minf--->', minf)
             return
